@@ -1,311 +1,770 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ELIZA Dialogautomat für Schüler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Very light slate background */
-            color: #1e293b;
-        }
-        /* Custom scrollbar for chat */
-        #chat-box::-webkit-scrollbar {
-            width: 6px;
-        }
-        #chat-box::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.05); 
-        }
-        #chat-box::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.2); 
-            border-radius: 10px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dialogautomat nach dem Vorbild von ELIZA</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #13192b;
+    }
+
+    /* Schöne Scrollbar für das Chat-Fenster */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    /* sanfte Einblend-Animation für neue Chat-Blasen */
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .msg-animate {
+      animation: popIn 0.22s ease-out forwards;
+    }
+
+    /* Hervorhebung für die aktuell prüfende & gewinnende Regel in der Tabelle */
+    .rule-checking {
+      background-color: #fef9c3 !important; /* sanftes Gelb beim Durchlaufen */
+      transition: background-color 0.15s ease;
+    }
+    .rule-matched {
+      background-color: #e0f2fe !important; /* hellblau bei Treffer */
+      box-shadow: inset 4px 0 0 #0284c7;
+      transition: all 0.25s ease;
+    }
+    .rule-matched- wildcard-highlight {
+      color: #0369a1;
+      font-weight: 700;
+    }
+  </style>
 </head>
-<body class="min-h-screen p-4 md:p-8 flex justify-center">
+<body class="min-h-screen py-6 px-3 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
 
-    <div class="max-w-7xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col lg:flex-row border border-slate-200">
+  <!-- Haupt-Container (Abgerundete weiße Karte wie in der Vorlage) -->
+  <main class="w-full max-w-6xl bg-white rounded-[28px] shadow-sm border border-slate-200/80 p-5 sm:p-8 lg:p-11">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      
+      <!-- ================= LINKE SPALTE: CHAT-BEREICH ================= -->
+      <section class="lg:col-span-5 flex flex-col" aria-label="Chat-Bereich">
         
-        <!-- LINKE SPALTE: CHAT -->
-        <div class="w-full lg:w-1/2 p-6 md:p-8 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200">
-            <h2 class="text-[#007b8b] font-bold text-sm md:text-base tracking-wider uppercase mb-6">
-                Dialogautomat nach dem Vorbild von Eliza
-            </h2>
+        <!-- Blaugraue/Petrol Überschrift -->
+        <h1 class="text-[#2b6cb0] text-xs sm:text-sm font-extrabold uppercase tracking-[0.08em] mb-3">
+          DIALOGAUTOMAT NACH DEM VORBILD VON ELIZA
+        </h1>
 
-            <!-- Chat Box -->
-            <div id="chat-box" class="bg-[#1a2035] rounded-2xl p-4 h-[400px] md:h-[500px] overflow-y-auto flex flex-col mb-4 shadow-inner">
-                <!-- Messages will be injected here by JS -->
-            </div>
-
-            <!-- Input Area -->
-            <div class="flex gap-3 mb-3">
-                <input type="text" id="user-input" 
-                    class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-[#1a2035] focus:ring-1 focus:ring-[#1a2035] transition-colors"
-                    placeholder="z. B. Ich bin heute müde."
-                    onkeypress="handleKeyPress(event)">
-                <button onclick="handleSend()" 
-                    class="bg-[#1a2035] text-white font-semibold px-6 py-3 rounded-xl hover:bg-slate-800 transition-colors shadow-sm">
-                    Senden
-                </button>
-            </div>
-
-            <!-- Disclaimer -->
-            <p class="text-slate-500 text-sm mb-6 leading-relaxed">
-                Erzähl hier nichts Privates – teste den Automaten mit ausgedachten Sätzen. Das Gespräch wird nicht gespeichert.
-            </p>
-
-            <!-- Reset Button -->
-            <div>
-                <button onclick="resetChat()" 
-                    class="border-2 border-slate-200 text-slate-800 font-semibold px-6 py-3 rounded-xl hover:bg-slate-50 transition-colors">
-                    Gespräch neu beginnen
-                </button>
-            </div>
+        <!-- Dunkelblaues Chat-Fenster -->
+        <div 
+          id="chatContainer" 
+          class="bg-[#13192b] rounded-2xl p-4 sm:p-5 h-[390px] sm:h-[430px] overflow-y-auto chat-scroll flex flex-col space-y-4 shadow-inner"
+          role="log"
+          aria-live="polite"
+        >
+          <!-- Nachrichten werden per JavaScript eingefügt -->
         </div>
 
-        <!-- RECHTE SPALTE: REGELN -->
-        <div class="w-full lg:w-1/2 p-6 md:p-8 bg-slate-50 flex flex-col">
-            <h2 class="text-2xl font-bold text-slate-800 mb-4">Regeln des Automaten</h2>
+        <!-- Eingabe-Formular unter dem Chat -->
+        <form id="chatForm" class="mt-4 flex items-center gap-2.5" autocomplete="off">
+          <label for="userInput" class="sr-only">Nachricht an den Dialogautomaten</label>
+          <input 
+            id="userInput" 
+            type="text" 
+            placeholder="z. B. Ich bin heute müde." 
+            class="flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-4 py-3 text-[15px] text-[#13192b] placeholder-slate-400 focus:outline-none focus:border-[#0e7490] focus:ring-2 focus:ring-[#0e7490]/20 transition"
+            maxlength="200"
+          />
+          <button 
+            type="submit" 
+            id="sendBtn"
+            class="bg-[#13192b] hover:bg-[#1e2742] active:scale-[0.98] text-white font-bold text-[15px] px-6 py-3 rounded-full transition shadow-sm shrink-0"
+          >
+            Senden
+          </button>
+        </form>
+
+        <!-- Datenschutz- & Didaktik-Hinweis -->
+        <p class="mt-3 text-[13.5px] leading-relaxed text-slate-500">
+          Erzähl hier nichts Privates – teste den Automaten mit ausgedachten Sätzen. Das Gespräch wird nicht gespeichert.
+        </p>
+
+        <!-- Aktions-Buttons unten links -->
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button 
+            type="button" 
+            id="resetChatBtn"
+            class="bg-white hover:bg-slate-50 active:bg-slate-100 text-[#13192b] font-bold text-[14.5px] px-5 py-2.5 rounded-full border border-slate-300 transition"
+          >
+            Gespräch neu beginnen
+          </button>
+        </div>
+
+      </section>
+
+      <!-- ================= RECHTE SPALTE: REGELN DES AUTOMATEN ================= -->
+      <section class="lg:col-span-7 flex flex-col" aria-label="Regeln des Automaten">
+        
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-[#13192b] text-xl sm:text-[22px] font-extrabold tracking-tight">
+            Regeln des Automaten
+          </h2>
+          <div class="flex items-center gap-3">
+            <span id="ruleStatusBadge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-sky-100 text-sky-800">
+              Bereit
+            </span>
+            <label class="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200/70 transition" title="Zeigt Schritt für Schritt in der Tabelle, wie der Automat von oben nach unten sucht">
+              <input type="checkbox" id="stepAnimationToggle" checked class="rounded text-[#2b6cb0] focus:ring-[#2b6cb0] h-3.5 w-3.5" />
+              <span>Regelprüfung Schritt für Schritt animieren</span>
+            </label>
+          </div>
+        </div>
+
+        <p class="mt-2 text-[14.5px] leading-relaxed text-slate-500">
+          Die Regeln werden von oben nach unten geprüft, die erste passende gewinnt. Der Stern <code class="font-bold text-slate-700">*</code> steht für den Rest des Satzes.
+        </p>
+
+        <!-- Regel-Tabelle -->
+        <div class="mt-4 overflow-hidden rounded-xl border border-slate-200/90">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-[#eef2f6] text-[#13192b] text-[11.5px] font-bold uppercase tracking-wider border-b border-slate-200">
+                <th class="py-3.5 pl-4 pr-2 w-[38%]">WENN DIE EINGABE ...<br>ENTHÄLT</th>
+                <th class="py-3.5 px-3">DANN ANTWORTE</th>
+                <th class="py-3.5 pl-2 pr-3 text-right w-20" title="Reihenfolge ändern oder eigene Regeln löschen">Aktion</th>
+              </tr>
+            </thead>
+            <tbody id="rulesTableBody" class="divide-y divide-slate-200 text-[14.5px]">
+              <!-- Zeilen werden dynamisch per JavaScript gerendert -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Formular: Eigene Regel hinzufügen -->
+        <form id="addRuleForm" class="mt-6" autocomplete="off">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
             
-            <p class="text-slate-600 mb-6 leading-relaxed">
-                Die Regeln werden von oben nach unten geprüft, die erste passende gewinnt. Der Stern <span class="font-bold">*</span> steht für den Rest des Satzes.
-            </p>
-
-            <!-- Rules Table -->
-            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-8 shadow-sm">
-                <table class="w-full text-left text-sm md:text-base border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100/50 border-b border-slate-200 text-slate-700">
-                            <th class="py-3 px-4 font-semibold w-1/2 uppercase tracking-wider text-xs md:text-sm">Wenn die Eingabe ... enthält</th>
-                            <th class="py-3 px-4 font-semibold w-1/2 uppercase tracking-wider text-xs md:text-sm">Dann antworte</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rules-table-body" class="divide-y divide-slate-100">
-                        <!-- Table rows injected by JS -->
-                    </tbody>
-                </table>
+            <!-- Eingabe: Schlüsselwort -->
+            <div class="sm:col-span-5">
+              <label for="keywordInput" class="block text-[13.5px] font-bold text-[#13192b] mb-1.5">
+                Schlüsselwort
+              </label>
+              <input 
+                id="keywordInput" 
+                type="text" 
+                placeholder="z. B. schule" 
+                class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[14.5px] text-[#13192b] placeholder-slate-400 focus:outline-none focus:border-[#0e7490] focus:ring-2 focus:ring-[#0e7490]/20 transition"
+                maxlength="60"
+              />
             </div>
 
-            <!-- Add Rule Form -->
-            <div class="mt-auto">
-                <div class="flex flex-col md:flex-row gap-4 mb-3">
-                    <div class="flex-1">
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Schlüsselwort</label>
-                        <input type="text" id="new-keyword" 
-                            class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-[#1a2035]"
-                            placeholder="z. B. schule">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Antwortmuster</label>
-                        <input type="text" id="new-pattern" 
-                            class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-[#1a2035]"
-                            placeholder="z. B. Was magst du an der Schule?">
-                    </div>
-                </div>
-                
-                <p class="text-slate-500 text-sm mb-4">
-                    Eigene Regeln werden nur lokal im Browser angewendet – trage nichts Persönliches ein.
-                </p>
-                
-                <button onclick="addRule()" 
-                    class="bg-[#1a2035] text-white font-semibold px-6 py-3 rounded-xl hover:bg-slate-800 transition-colors shadow-sm inline-block">
-                    Eigene Regel hinzufügen
+            <!-- Eingabe: Antwortmuster -->
+            <div class="sm:col-span-7">
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="patternInput" class="block text-[13.5px] font-bold text-[#13192b]">
+                  Antwortmuster
+                </label>
+                <button 
+                  type="button" 
+                  id="insertStarBtn"
+                  class="text-xs font-semibold text-[#0e7490] hover:underline"
+                  title="Fügt den Platzhalter * für den Satzrest ein"
+                >
+                  + Stern (*) einfügen
                 </button>
+              </div>
+              <input 
+                id="patternInput" 
+                type="text" 
+                placeholder="z. B. Was magst du an der Schule?" 
+                class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[14.5px] text-[#13192b] placeholder-slate-400 focus:outline-none focus:border-[#0e7490] focus:ring-2 focus:ring-[#0e7490]/20 transition"
+                maxlength="160"
+              />
             </div>
-        </div>
+
+          </div>
+
+          <!-- Feedback-Meldung bei Fehlern (statt alert) -->
+          <div id="formErrorMsg" class="hidden mt-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"></div>
+
+          <p class="mt-2.5 text-[13.5px] text-slate-500">
+            Eigene Regeln werden lokal gespeichert – trage nichts Persönliches ein.
+          </p>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button 
+              type="submit" 
+              class="bg-[#13192b] hover:bg-[#1e2742] active:scale-[0.98] text-white font-bold text-[14.5px] px-6 py-3 rounded-full transition shadow-sm"
+            >
+              Eigene Regel hinzufügen
+            </button>
+
+            <button 
+              type="button" 
+              id="resetRulesBtn"
+              class="hidden text-xs font-semibold text-slate-500 hover:text-slate-800 underline px-2 py-1.5 transition"
+            >
+              Standardregeln wiederherstellen
+            </button>
+          </div>
+        </form>
+
+      </section>
 
     </div>
+  </main>
 
-    <script>
-        // Initialer Regel-Datensatz
-        let rules = [
-            { keyword: "ich bin", pattern: "Warum bist du *?" },
-            { keyword: "ich mag", pattern: "Was gefällt dir an *?" },
-            { keyword: "ich habe", pattern: "Seit wann hast du *?" },
-            { keyword: "warum", pattern: "Welche Antwort vermutest du selbst?" },
-            { keyword: "computer", pattern: "Welche Erfahrungen hast du mit Computern?" },
-            { keyword: "nein", pattern: "Warum nicht?" }
-        ];
-        
-        const fallbackPattern = "Erzähl mir mehr darüber.";
-        const greetingText = "Hallo, ich bin ein Dialogautomat. Was beschäftigt dich?";
+  <!-- Dezente Fußzeile mit Erklär-Tipp für den Unterricht -->
+  <footer class="w-full max-w-6xl mt-4 px-2 flex flex-wrap justify-between items-center text-xs text-slate-500 gap-2">
+    <div>
+      <strong>Tipp zum Ausprobieren:</strong> Gib einen Satz mit mehreren Schlüsselwörtern ein (z. B. <em>„Ich bin müde, weil mein Computer spinnt“</em>) und verschiebe die Regeln mit den Pfeilen <span class="font-semibold">↑ ↓</span>.
+    </div>
+    <div>
+      Interaktives Lernmodul • ELIZA (Joseph Weizenbaum, 1966)
+    </div>
+  </footer>
 
-        // DOM Elemente initialisieren
-        document.addEventListener("DOMContentLoaded", () => {
-            renderTable();
-            resetChat();
-        });
+  <!-- ================= JAVASCRIPT LOGIK ================= -->
+  <script>
+    // --- 1. STANDARD-REGELN (Exakt nach dem Screenshot) ---
+    const DEFAULT_RULES = [
+      { id: 'r1', keyword: 'ich bin', response: 'Warum bist du *?', isDefault: true },
+      { id: 'r2', keyword: 'ich mag', response: 'Was gefällt dir an *?', isDefault: true },
+      { id: 'r3', keyword: 'ich habe', response: 'Seit wann hast du *?', isDefault: true },
+      { id: 'r4', keyword: 'warum', response: 'Welche Antwort vermutest du selbst?', isDefault: true },
+      { id: 'r5', keyword: 'computer', response: 'Welche Erfahrungen hast du mit Computern?', isDefault: true },
+      { id: 'r6', keyword: 'nein', response: 'Warum nicht?', isDefault: true }
+    ];
 
-        // Funktion zum Anzeigen einer Nachricht im Chat
-        function addMessageToChat(text, isUser, subtitle = "") {
-            const chatBox = document.getElementById("chat-box");
-            const wrapper = document.createElement("div");
-            wrapper.className = `flex w-full mb-6 ${isUser ? "justify-end" : "justify-start"}`;
+    // Abwechslungsreiche klassische ELIZA-Auffangantworten für die "sonst"-Regel
+    const FALLBACK_RESPONSES = [
+      'Erzähl mir mehr darüber.',
+      'Wie kommst du darauf?',
+      'Interessant – bitte erzähl weiter.',
+      'Verstehe. Was beschäftigt dich noch?',
+      'Kannst du das genauer erklären?'
+    ];
 
-            const bubble = document.createElement("div");
-            
-            if (isUser) {
-                // User Bubble Styling (Gelb, rechts)
-                bubble.className = "bg-[#fbd051] text-black px-5 py-3 rounded-2xl rounded-tr-sm max-w-[85%] shadow-md font-medium text-[15px]";
-                bubble.innerText = text;
-            } else {
-                // Bot Bubble Styling (Dunkelblau, links)
-                bubble.className = "bg-[#2a3048] text-white px-5 py-3 rounded-2xl rounded-tl-sm max-w-[85%] shadow-md text-[15px]";
-                
-                const textDiv = document.createElement("div");
-                textDiv.className = "font-medium leading-relaxed";
-                textDiv.innerText = text;
-                bubble.appendChild(textDiv);
+    const STORAGE_KEY = 'eliza_schul_regeln_v1';
 
-                if (subtitle) {
-                    const subDiv = document.createElement("div");
-                    subDiv.className = "text-[#4db8c8] text-xs mt-2 font-medium";
-                    subDiv.innerText = subtitle;
-                    bubble.appendChild(subDiv);
-                }
-            }
+    // Aktueller Zustand
+    let rules = [];
+    let lastFallbackIndex = -1;
+    let isAnimatingCheck = false;
+    let activeMatchedRuleId = null; // Zu Beginn ist noch keine Regel ausgewählt
 
-            wrapper.appendChild(bubble);
-            chatBox.appendChild(wrapper);
-            
-            // Automatisch nach unten scrollen
-            chatBox.scrollTop = chatBox.scrollHeight;
+    // DOM-Elemente
+    const chatContainer = document.getElementById('chatContainer');
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const resetChatBtn = document.getElementById('resetChatBtn');
+    const stepAnimationToggle = document.getElementById('stepAnimationToggle');
+    const rulesTableBody = document.getElementById('rulesTableBody');
+    const ruleStatusBadge = document.getElementById('ruleStatusBadge');
+    const addRuleForm = document.getElementById('addRuleForm');
+    const keywordInput = document.getElementById('keywordInput');
+    const patternInput = document.getElementById('patternInput');
+    const insertStarBtn = document.getElementById('insertStarBtn');
+    const formErrorMsg = document.getElementById('formErrorMsg');
+    const resetRulesBtn = document.getElementById('resetRulesBtn');
+
+    // --- 2. INITIALISIERUNG ---
+    function init() {
+      loadRules();
+      renderRulesTable();
+      resetChat();
+    }
+
+    // Lädt Regeln aus dem LocalStorage oder nutzt die Standardregeln
+    function loadRules() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            rules = parsed;
+            updateResetRulesButtonVisibility();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('LocalStorage konnte nicht gelesen werden:', e);
+      }
+      rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+      updateResetRulesButtonVisibility();
+    }
+
+    function saveRules() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+      } catch (e) {
+        console.warn('LocalStorage konnte nicht gespeichert werden:', e);
+      }
+      updateResetRulesButtonVisibility();
+    }
+
+    // Prüft, ob die aktuellen Regeln von den Standardregeln abweichen
+    function updateResetRulesButtonVisibility() {
+      const currentJson = JSON.stringify(rules.map(r => ({ k: r.keyword, res: r.response })));
+      const defaultJson = JSON.stringify(DEFAULT_RULES.map(r => ({ k: r.keyword, res: r.response })));
+      if (currentJson !== defaultJson) {
+        resetRulesBtn.classList.remove('hidden');
+      } else {
+        resetRulesBtn.classList.add('hidden');
+      }
+    }
+
+    // --- 3. CHAT-DARSTELLUNG ---
+    // Setzt den Chat auf die reine Start-Begrüßung zurück
+    function resetChat() {
+      if (isAnimatingCheck) return;
+      chatContainer.innerHTML = '';
+      appendBotMessage('Hallo, ich bin ein Dialogautomat. Was beschäftigt dich?', 'Begrüßung', true);
+      activeMatchedRuleId = null;
+      clearRowHighlights();
+      ruleStatusBadge.classList.add('hidden');
+      userInput.focus();
+    }
+
+    // Fügt eine dunkle Bot-Sprechblase linksbündig hinzu
+    function appendBotMessage(text, ruleLabel, animate = true) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex justify-start ${animate ? 'msg-animate' : ''}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bg-[#262f45] text-white rounded-2xl px-4 py-3.5 max-w-[85%] shadow-sm';
+
+      const messageText = document.createElement('div');
+      messageText.className = 'font-bold text-[15.5px] sm:text-[16.5px] leading-snug break-words';
+      messageText.textContent = text;
+
+      const ruleSubtext = document.createElement('div');
+      ruleSubtext.className = 'text-[#38bdf8] text-xs sm:text-[13px] font-medium mt-1.5';
+      ruleSubtext.textContent = ruleLabel;
+
+      bubble.appendChild(messageText);
+      bubble.appendChild(ruleSubtext);
+      wrapper.appendChild(bubble);
+      chatContainer.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    // Fügt eine gelbe Nutzer-Sprechblase rechtsbündig hinzu
+    function appendUserMessage(text, animate = true) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex justify-end ${animate ? 'msg-animate' : ''}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bg-[#f4c44e] text-[#13192b] font-bold text-[15.5px] sm:text-[16px] rounded-[20px] px-4 py-3 max-w-[82%] shadow-sm break-words';
+      bubble.textContent = text;
+
+      wrapper.appendChild(bubble);
+      chatContainer.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // --- 4. REGEL-TABELLE RENDERN ---
+    function renderRulesTable() {
+      rulesTableBody.innerHTML = '';
+
+      rules.forEach((rule, index) => {
+        const tr = document.createElement('tr');
+        tr.id = `row-${rule.id}`;
+        tr.className = 'bg-white hover:bg-slate-50/80 transition-colors group';
+
+        // Spalte 1: Nummer + Schlüsselwort
+        const tdKeyword = document.createElement('td');
+        tdKeyword.className = 'py-3 pl-4 pr-2 align-top text-slate-700';
+        tdKeyword.innerHTML = `<span class="font-bold text-[#13192b]">${index + 1}.</span> ${escapeHtml(rule.keyword)}`;
+
+        // Spalte 2: Antwortmuster (Stern * optisch leicht betont)
+        const tdResponse = document.createElement('td');
+        tdResponse.className = 'py-3 px-3 align-top text-slate-600';
+        tdResponse.innerHTML = formatResponsePattern(rule.response);
+
+        // Spalte 3: Pfeile zum Verschieben (Priorität testen) & Löschen für eigene Regeln
+        const tdActions = document.createElement('td');
+        tdActions.className = 'py-2.5 pl-1 pr-3 align-top text-right whitespace-nowrap';
+
+        const btnUp = document.createElement('button');
+        btnUp.type = 'button';
+        btnUp.className = `p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition ${index === 0 ? 'opacity-25 pointer-events-none' : ''}`;
+        btnUp.title = 'Regel nach oben schieben (höhere Priorität)';
+        btnUp.innerHTML = '↑';
+        btnUp.onclick = () => moveRule(index, -1);
+
+        const btnDown = document.createElement('button');
+        btnDown.type = 'button';
+        btnDown.className = `p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition ${index === rules.length - 1 ? 'opacity-25 pointer-events-none' : ''}`;
+        btnDown.title = 'Regel nach unten schieben (niedrigere Priorität)';
+        btnDown.innerHTML = '↓';
+        btnDown.onclick = () => moveRule(index, 1);
+
+        tdActions.appendChild(btnUp);
+        tdActions.appendChild(btnDown);
+
+        // Löschen-Button (für eigene Regeln oder wenn mehr als 1 Regel existiert)
+        if (!rule.isDefault) {
+          const btnDelete = document.createElement('button');
+          btnDelete.type = 'button';
+          btnDelete.className = 'p-1 ml-0.5 rounded hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition';
+          btnDelete.title = 'Eigene Regel löschen';
+          btnDelete.innerHTML = '✕';
+          btnDelete.onclick = () => deleteRule(index);
+          tdActions.appendChild(btnDelete);
         }
 
-        // ELIZA Logik Kernfunktion
-        function generateElizaResponse(input) {
-            const lowerInput = input.toLowerCase();
+        tr.appendChild(tdKeyword);
+        tr.appendChild(tdResponse);
+        tr.appendChild(tdActions);
+        rulesTableBody.appendChild(tr);
+      });
 
-            // Regeln von oben nach unten durchlaufen
-            for (let i = 0; i < rules.length; i++) {
-                const rule = rules[i];
-                const lowerKeyword = rule.keyword.toLowerCase();
-                const keywordIndex = lowerInput.indexOf(lowerKeyword);
+      // Letzte Zeile: "sonst" -> "Auffangantwort" (immer ganz unten)
+      const trFallback = document.createElement('tr');
+      trFallback.id = 'row-fallback';
+      trFallback.className = 'bg-white hover:bg-slate-50/80 transition-colors';
+      trFallback.innerHTML = `
+        <td class="py-3 pl-4 pr-2 align-top font-bold text-[#13192b]">sonst</td>
+        <td class="py-3 px-3 align-top text-slate-500" colspan="2">
+          <span class="border-b border-dotted border-slate-400 cursor-help" title="Greift, wenn keines der Schlüsselwörter oben im Satz vorkommt (z. B. „Erzähl mir mehr darüber.“)">
+            Auffangantwort
+          </span>
+        </td>
+      `;
+      rulesTableBody.appendChild(trFallback);
 
-                if (keywordIndex !== -1) {
-                    // Schlüsselwort gefunden! Text nach dem Schlüsselwort extrahieren.
-                    let restOfSentence = input.substring(keywordIndex + rule.keyword.length).trim();
-                    
-                    // Satzzeichen am Ende entfernen für saubere Antworten (Optional aber sinnvoll)
-                    restOfSentence = restOfSentence.replace(/[.!?]+$/, "");
+      if (activeMatchedRuleId) {
+        highlightMatchedRow(activeMatchedRuleId);
+      }
+    }
 
-                    let responseText = rule.pattern;
-                    
-                    // Wenn ein Sternchen vorhanden ist, durch den Rest-Satz ersetzen
-                    if (responseText.includes("*")) {
-                        responseText = responseText.replace("*", restOfSentence);
-                    }
+    function formatResponsePattern(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(/\*/g, '<span class="font-bold text-[#0e7490] bg-cyan-50 px-1 rounded" title="Hier wird der Rest deines Satzes eingesetzt">*</span>');
+    }
 
-                    return {
-                        text: responseText,
-                        subtitle: `Regel ${i + 1}: „${rule.keyword}“`
-                    };
-                }
-            }
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
-            // Keine Regel hat gepasst -> Auffangantwort
-            return {
-                text: fallbackPattern,
-                subtitle: "sonst"
-            };
+    // Verschiebt eine Regel nach oben oder unten, damit Schüler die Priorität erforschen können
+    function moveRule(index, direction) {
+      if (isAnimatingCheck) return;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= rules.length) return;
+      const temp = rules[index];
+      rules[index] = rules[targetIndex];
+      rules[targetIndex] = temp;
+      saveRules();
+      renderRulesTable();
+    }
+
+    function deleteRule(index) {
+      if (isAnimatingCheck) return;
+      const removed = rules[index];
+      rules.splice(index, 1);
+      if (activeMatchedRuleId === removed.id) {
+        activeMatchedRuleId = null;
+      }
+      saveRules();
+      renderRulesTable();
+    }
+
+    // --- 5. ELIZA TEXTVERARBEITUNG & WILDCARD (*) LOGIK ---
+    // Spiegelt deutsche Pronomen im extrahierten Satzrest (Ich -> Du, mein -> dein, mir -> dir ...)
+    function reflectGermanPronouns(restText) {
+      const replacements = [
+        { pattern: /\bich\b/gi, replacement: 'du' },
+        { pattern: /\bmich\b/gi, replacement: 'dich' },
+        { pattern: /\bmir\b/gi, replacement: 'dir' },
+        { pattern: /\bmein\b/gi, replacement: 'dein' },
+        { pattern: /\bmeine\b/gi, replacement: 'deine' },
+        { pattern: /\bmeinen\b/gi, replacement: 'deinen' },
+        { pattern: /\bmeinem\b/gi, replacement: 'deinem' },
+        { pattern: /\bmeiner\b/gi, replacement: 'deiner' },
+        { pattern: /\bmeines\b/gi, replacement: 'deines' },
+        { pattern: /\bbin\b/gi, replacement: 'bist' },
+        { pattern: /\bhabe\b/gi, replacement: 'hast' },
+        { pattern: /\bkann\b/gi, replacement: 'kannst' },
+        { pattern: /\bmuss\b/gi, replacement: 'musst' },
+        { pattern: /\bwill\b/gi, replacement: 'willst' }
+      ];
+
+      // Token-basierte Ersetzung verhindert, dass ein bereits ersetztes Wort nochmal ersetzt wird
+      return restText.split(/(\s+)/).map(token => {
+        for (const item of replacements) {
+          if (item.pattern.test(token)) {
+            return token.replace(item.pattern, item.replacement);
+          }
         }
+        return token;
+      }).join('');
+    }
 
-        // Benutzer-Eingabe verarbeiten
-        function handleSend() {
-            const inputField = document.getElementById("user-input");
-            const text = inputField.value.trim();
-            
-            if (text === "") return;
+    // Erzeugt die Antwort anhand der gefundenen Regel und der Nutzereingabe
+    function buildBotResponse(userText, rule) {
+      const lowerUser = userText.toLowerCase();
+      const lowerKeyword = rule.keyword.toLowerCase().trim();
+      const matchIndex = lowerUser.indexOf(lowerKeyword);
 
-            // 1. Nutzernachricht anzeigen
-            addMessageToChat(text, true);
-            inputField.value = "";
+      // Falls das Antwortmuster keinen Stern * enthält, direkt zurückgeben
+      if (!rule.response.includes('*')) {
+        return rule.response;
+      }
 
-            // 2. Kurze Verzögerung simulieren, damit es sich wie ein Chat anfühlt
-            setTimeout(() => {
-                const response = generateElizaResponse(text);
-                // 3. Botnachricht anzeigen
-                addMessageToChat(response.text, false, response.subtitle);
-            }, 400);
+      // Alles NACH dem Schlüsselwort ausschneiden
+      let rest = '';
+      if (matchIndex !== -1) {
+        rest = userText.substring(matchIndex + lowerKeyword.length);
+      }
+
+      // Satzzeichen am Ende (. ! ? , ;) und überflüssige Leerzeichen entfernen
+      rest = rest.replace(/[.!?,;:\s]+$/g, '').trim();
+
+      // Falls nach dem Schlüsselwort noch ein Nebensatz mit Komma oder Punkt folgt, optional alles sauber halten
+      if (!rest) {
+        // Fallback, falls der Nutzer NUR das Schlüsselwort eingegeben hat (z.B. nur "ich bin")
+        return rule.response
+          .replace(/\s*\*\s*/g, ' das')
+          .replace(/\s+\?/g, '?');
+      }
+
+      // Ersten Buchstaben des Restsatzes klein machen, falls es kein Nomen ist (einfache Heuristik: Pronomen/Adjektive am Satzanfang)
+      const reflectedRest = reflectGermanPronouns(rest);
+
+      return rule.response.replace(/\*/g, reflectedRest);
+    }
+
+    // Wählt eine abwechslungsreiche Auffangantwort aus
+    function getNextFallbackResponse() {
+      let idx;
+      do {
+        idx = Math.floor(Math.random() * FALLBACK_RESPONSES.length);
+      } while (idx === lastFallbackIndex && FALLBACK_RESPONSES.length > 1);
+      lastFallbackIndex = idx;
+      return FALLBACK_RESPONSES[idx];
+    }
+
+    // Findet die erste passende Regel von oben nach unten
+    function evaluateRules(userText) {
+      const lowerInput = userText.toLowerCase();
+
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        const kw = rule.keyword.toLowerCase().trim();
+        if (kw && lowerInput.includes(kw)) {
+          return {
+            matchedIndex: i,
+            rule: rule,
+            replyText: buildBotResponse(userText, rule),
+            ruleLabel: `Regel ${i + 1}: „${rule.keyword}“`
+          };
         }
+      }
 
-        // Erlaubt das Absenden per Enter-Taste
-        function handleKeyPress(event) {
-            if (event.key === "Enter") {
-                handleSend();
-            }
+      // Keine Regel hat gepasst -> "sonst" (Auffangantwort)
+      return {
+        matchedIndex: rules.length, // Index für die "sonst"-Zeile
+        rule: null,
+        replyText: getNextFallbackResponse(),
+        ruleLabel: 'Regel: sonst (Auffangantwort)'
+      };
+    }
+
+    // --- 6. VISUELLE REGEL-PRÜFUNG (DIDAKTIK-ANIMATION) ---
+    function clearRowHighlights() {
+      const allRows = rulesTableBody.querySelectorAll('tr');
+      allRows.forEach(r => {
+        r.classList.remove('rule-checking', 'rule-matched');
+      });
+    }
+
+    function highlightMatchedRow(ruleId) {
+      clearRowHighlights();
+      activeMatchedRuleId = ruleId;
+      const targetRow = ruleId === 'fallback'
+        ? document.getElementById('row-fallback')
+        : document.getElementById(`row-${ruleId}`);
+      if (targetRow) {
+        targetRow.classList.add('rule-matched');
+      }
+    }
+
+    async function animateRuleSearchAndRespond(userText) {
+      const result = evaluateRules(userText);
+      const animateSteps = stepAnimationToggle.checked;
+
+      if (!animateSteps) {
+        // Sofortige Antwort ohne Schritt-für-Schritt-Verzögerung
+        const targetId = result.rule ? result.rule.id : 'fallback';
+        highlightMatchedRow(targetId);
+        showStatusBadge(result.ruleLabel);
+        appendBotMessage(result.replyText, result.ruleLabel, true);
+        return;
+      }
+
+      // Schrittweise von Regel 1 bis zum Treffer durchlaufen
+      isAnimatingCheck = true;
+      sendBtn.disabled = true;
+      clearRowHighlights();
+
+      for (let i = 0; i <= result.matchedIndex; i++) {
+        clearRowHighlights();
+        const isFallbackStep = i === rules.length;
+        const currentRow = isFallbackStep
+          ? document.getElementById('row-fallback')
+          : document.getElementById(`row-${rules[i].id}`);
+
+        if (currentRow) {
+          if (i === result.matchedIndex) {
+            // Treffer!
+            currentRow.classList.add('rule-matched');
+            activeMatchedRuleId = isFallbackStep ? 'fallback' : rules[i].id;
+            showStatusBadge(`Treffer: ${result.ruleLabel}`);
+          } else {
+            // Wird gerade geprüft, passt aber nicht
+            currentRow.classList.add('rule-checking');
+            showStatusBadge(`Prüfe Regel ${i + 1} …`);
+            await sleep(220);
+          }
         }
+      }
 
-        // Chat leeren und neu starten
-        function resetChat() {
-            const chatBox = document.getElementById("chat-box");
-            chatBox.innerHTML = "";
-            addMessageToChat(greetingText, false, "Begrüßung");
-        }
+      appendBotMessage(result.replyText, result.ruleLabel, true);
+      isAnimatingCheck = false;
+      sendBtn.disabled = false;
+      userInput.focus();
+    }
 
-        // Regel-Tabelle in der UI aktualisieren
-        function renderTable() {
-            const tbody = document.getElementById("rules-table-body");
-            tbody.innerHTML = "";
+    function showStatusBadge(text) {
+      ruleStatusBadge.textContent = text;
+      ruleStatusBadge.classList.remove('hidden');
+    }
 
-            rules.forEach((rule, index) => {
-                const tr = document.createElement("tr");
-                tr.className = "hover:bg-slate-50 transition-colors";
-                
-                tr.innerHTML = `
-                    <td class="py-3 px-4 text-slate-700">
-                        <span class="font-bold mr-2">${index + 1}.</span> ${rule.keyword}
-                    </td>
-                    <td class="py-3 px-4 text-slate-600">
-                        ${rule.pattern}
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-            // Auffangantwort hinzufügen (immer am Ende)
-            const fallbackTr = document.createElement("tr");
-            fallbackTr.className = "bg-slate-50 font-medium border-t-2 border-slate-200";
-            fallbackTr.innerHTML = `
-                <td class="py-3 px-4 text-slate-700">
-                    <span class="font-bold mr-2">sonst</span>
-                </td>
-                <td class="py-3 px-4 text-slate-500 italic">
-                    Auffangantwort
-                </td>
-            `;
-            tbody.appendChild(fallbackTr);
-        }
+    // --- 7. EVENT LISTENER ---
+    // Nachricht absenden
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isAnimatingCheck) return;
 
-        // Neue Regel hinzufügen
-        function addRule() {
-            const keywordInput = document.getElementById("new-keyword");
-            const patternInput = document.getElementById("new-pattern");
-            
-            const keyword = keywordInput.value.trim();
-            const pattern = patternInput.value.trim();
+      const text = userInput.value.trim();
+      if (!text) {
+        userInput.focus();
+        return;
+      }
 
-            if (keyword === "" || pattern === "") {
-                alert("Bitte fülle beide Felder aus, um eine Regel hinzuzufügen.");
-                return;
-            }
+      userInput.value = '';
+      appendUserMessage(text, true);
+      await animateRuleSearchAndRespond(text);
+    });
 
-            // Regel zum Array hinzufügen
-            rules.push({ keyword: keyword, pattern: pattern });
-            
-            // Eingabefelder leeren
-            keywordInput.value = "";
-            patternInput.value = "";
-            
-            // Tabelle neu zeichnen, um die neue Regel anzuzeigen
-            renderTable();
-            
-            // Kleiner Hinweis für den Nutzer (Optional, aber hilfreich für Feedback)
-            keywordInput.focus();
-        }
-    </script>
+    // Gespräch neu beginnen
+    resetChatBtn.addEventListener('click', () => {
+      resetChat();
+    });
+
+    // "+ Stern (*) einfügen" Hilfsbutton
+    insertStarBtn.addEventListener('click', () => {
+      const start = patternInput.selectionStart ?? patternInput.value.length;
+      const end = patternInput.selectionEnd ?? patternInput.value.length;
+      const current = patternInput.value;
+      patternInput.value = current.substring(0, start) + '*' + current.substring(end);
+      patternInput.focus();
+      patternInput.setSelectionRange(start + 1, start + 1);
+    });
+
+    // Eigene Regel hinzufügen
+    addRuleForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      formErrorMsg.classList.add('hidden');
+
+      const keyword = keywordInput.value.trim().toLowerCase();
+      const response = patternInput.value.trim();
+
+      if (!keyword || !response) {
+        showFormError('Bitte gib sowohl ein Schlüsselwort als auch ein Antwortmuster ein.');
+        return;
+      }
+
+      if (keyword === 'sonst') {
+        showFormError('„sonst“ ist bereits als Auffangregel am Ende reserviert.');
+        return;
+      }
+
+      const newRule = {
+        id: 'custom_' + Date.now(),
+        keyword: keyword,
+        response: response,
+        isDefault: false
+      };
+
+      rules.push(newRule);
+      saveRules();
+      renderRulesTable();
+      highlightMatchedRow(newRule.id);
+      showStatusBadge(`Neue Regel ${rules.length} hinzugefügt`);
+
+      keywordInput.value = '';
+      patternInput.value = '';
+      keywordInput.focus();
+    });
+
+    // Standardregeln wiederherstellen
+    resetRulesBtn.addEventListener('click', () => {
+      if (isAnimatingCheck) return;
+      rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+      activeMatchedRuleId = null;
+      saveRules();
+      renderRulesTable();
+      showStatusBadge('Standardregeln wiederhergestellt');
+    });
+
+    function showFormError(msg) {
+      formErrorMsg.textContent = msg;
+      formErrorMsg.classList.remove('hidden');
+    }
+
+    // Starten
+    window.onload = init;
+  </script>
 </body>
 </html>
